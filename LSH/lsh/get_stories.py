@@ -120,6 +120,3 @@ def run():
     dump(starttime, current)
     sys.stderr.write('Total number of stories: ' + str(len(stories)) + '\n')
     sys.stderr.write('Total number of tweets: ' + str(n) + '\n')
-
-def s:
-    
