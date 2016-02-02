@@ -17,7 +17,7 @@ objects.
 '''
 
 app = Flask(__name__)
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False
 
 # global vars
 tweet_count        = 0
