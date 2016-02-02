@@ -1,1 +1,0 @@
-{ "indexes" : [ { "v" : 1, "key" : { "_id" : 1 }, "name" : "_id_", "ns" : "Tweets.Tweets" }, { "v" : 1, "key" : { "coordinates" : "2d" }, "name" : "coordinates_2d", "ns" : "Tweets.Tweets", "background" : false } ] }
