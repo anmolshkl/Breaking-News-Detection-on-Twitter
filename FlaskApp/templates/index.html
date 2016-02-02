@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+ 
+<head>
+    <title>DB Creation App</title>
+ 
+ 
+    <link href="http://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
+ 
+    <link href="http://getbootstrap.com/examples/jumbotron-narrow/jumbotron-narrow.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Josefin+Sans:400,600' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+        .stats {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 20px;
+        }
+    </style>
+ 
+</head>
+ 
+<body>
+ 
+    <div class="container">
+        <div class="header">
+            <nav>
+                <ul class="nav nav-pills pull-right">
+                    <li role="presentation" class="active"><a href="/download">Download DB</a>
+                    </li>
+                </ul>
+            </nav>
+            <h3 class="text-muted">Python Flask App</h3>
+        </div>
+ 
+        <div class="jumbotron">
+            <h4>Creating Database for {{ target }} tweets</h4>
+            <p class="lead"></p>
+        </div>
+ 
+        <div class="row stats">
+            <div class="col-lg-12">
+                {% if is_alive == True %}
+                <span style="color:green;font-weight:600;">Thread is Running!</span>
+                {% else %}
+                <span style="color:red;font-weight:600;">Thread is NOT Running!</span>
+                {% endif %}
+                <br>
+                Total fetches made: <span style="font-weight:600;">{{ fetch_count }}</span></span><br>
+                Total tweets saved in DB: <span style="font-weight:600;">{{ db_tweets_count }}</span><br>
+                Total tweets fetched: <span style="font-weight:600;">{{ tweet_count }}</span><br>
+                Average Time/fetch: <span style="font-weight:600;">{{ avg_time_per_fetch }} sec</span><br>
+                Estimated Remaining Time: <span style="font-weight:600;">{{ est_time }} min</span>
+                <hr>
+                Note:
+                A total of 100 tweets are fetched at once, out of which only 
+                about 65-75 are returned by Twitter.
+            </div>
+        </div>
+ 
+        <footer class="footer">
+            <p>&copy; Anmol Shukla</p>
+        </footer>
+ 
+    </div>
+</body>
+ 
+</html>
