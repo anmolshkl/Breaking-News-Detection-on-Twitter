@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "FlaskApp/create_db.py", line 101, in <module>
-    scrapeTweets()
-  File "FlaskApp/create_db.py", line 95, in scrapeTweets
-    if(gvars.fetch_count*100 > gvars.TARGET):
-AttributeError: 'module' object has no attribute 'TARGET'
