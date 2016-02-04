@@ -38,11 +38,7 @@
  
         <div class="row stats">
             <div class="col-lg-12">
-                {% if is_alive == True %}
-                <span style="color:green;font-weight:600;">Thread is Running!</span>
-                {% else %}
-                <span style="color:red;font-weight:600;">Thread is NOT Running!</span>
-                {% endif %}
+                <span style="color:green;font-weight:600;">Last Modification: {{ modified_at }}</span>
                 <br>
                 Total fetches made: <span style="font-weight:600;">{{ fetch_count }}</span></span><br>
                 Total tweets saved in DB: <span style="font-weight:600;">{{ db_tweets_count }}</span><br>

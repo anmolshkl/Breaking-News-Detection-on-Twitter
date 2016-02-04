@@ -1,33 +1,30 @@
-import json
 import os
+import json
 import tweepy
 import chalk
 import requests.packages.urllib3 as urllib3
 import time
 from tweet_schema import Tweet
-from flask import Flask, render_template, send_from_directory
+import datetime
 from mongoengine import *
-import threading
-from subprocess import call
+import redis
 
 '''
 Takes the Tweet IDs(obtained from Twitter FSD, 
 http://demeter.inf.ed.ac.uk/cross/docs/fsd_corpus.tar.gz) and retrieves the corresponding tweet 
 objects.
 '''
-
-app = Flask(__name__)
-app.config['DEBUG'] = False
-app.config['MONGODB_SETTINGS'] = {'db':'Tweets', 'alias':'default'}
-
-# global vars
-tweet_count        = 0
-time_per_100       = []
-avg_time_per_fetch = 0
-fetch_count        = 0
-TARGET             = 10000000
+r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 def scrapeTweets():
+    time_per_100       = []
+    fetch_count        = 0
+    avg_time_per_fetch = 0
+    tweet_count        = 0
+    target             = 1000000
+    modified_at        = None
+
+
     # disable all HTTPS/TLS warnings
     urllib3.disable_warnings()
 
@@ -53,14 +50,7 @@ def scrapeTweets():
 
     tweet_id_list = []
 
-    global tweet_count
-
-    global time_per_100
-
-    global avg_time_per_fetch
-
-    global fetch_count
-    global TARGET
+    
 
     with open(db_path) as file_db:
         t0 = time.time()
@@ -96,8 +86,18 @@ def scrapeTweets():
                     avg_time_per_fetch = sum(time_per_100)/len(time_per_100)
                     chalk.red('Avg time per fetch = {0}'.format(avg_time_per_fetch))
                     tweet_count += len(status_obj)
+                    modified_at = datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')
+                    print time_per_100
                     chalk.green("Scraped {0} tweets, Total ={1} tweets".format(
                         len(status_obj), tweet_count))
+
+                    # save all the stats to REDIS
+                    r.set('tweet_count', tweet_count)
+                    r.set('avg_time_per_fetch', avg_time_per_fetch)
+                    r.set('fetch_count', fetch_count)
+                    r.set('modified_at', modified_at)
+                    # r.set('target', target) 
+
                 except tweepy.RateLimitError:
                     chalk.blue("Going to Sleep")
                     time.sleep(15 * 60)
@@ -106,40 +106,10 @@ def scrapeTweets():
                     tweet_id_list[:] = []
 
             # Stop thread if no of tweets > 1,00,00,000
-            if(fetch_count*100 > TARGET):
+            if(fetch_count*100 > target):
                 print "Fetched All the Tweets"
                 return
 
 
-t = threading.Thread(target=scrapeTweets)
-
-@app.route("/")
-def main():
-    # connect to DB
-    db = connect('Tweets')
-    
-    db_tweets_count = len(Tweet.objects)
-    est_time = (((10000000 - fetch_count*100) * avg_time_per_fetch) / 100)/60
-    return render_template(
-        'index.html',
-        db_tweets_count=db_tweets_count,
-        tweet_count=tweet_count,
-        avg_time_per_fetch=avg_time_per_fetch,
-        fetch_count=fetch_count,
-        est_time=est_time,
-        is_alive=t.isAlive(),
-        target=TARGET
-    )
-
-@app.route("/download")
-def downloadDB():
-    return 'Currently Not Working'
-    # root_dir = os.path.dirname(os.getcwd())
-    # outfile = os.path.join(root_dir, os.pardir, 'static', os.pardir, 'tweet_db')
-    # call(["mongodump", "-d","Tweets","-o",outfile],shell=True)
-    # return send_from_directory(os.path.join(root_dir,'static'), 'tweet_db')
-
 if __name__ == "__main__":
-    
-    t.start()
-    app.run(host='0.0.0.0')
+    scrapeTweets()
