@@ -18,6 +18,7 @@ objects.
 
 app = Flask(__name__)
 app.config['DEBUG'] = False
+app.config['MONGODB_SETTINGS'] = {'db':'Tweets', 'alias':'default'}
 
 # global vars
 tweet_count        = 0
@@ -114,6 +115,9 @@ t = threading.Thread(target=scrapeTweets)
 
 @app.route("/")
 def main():
+    # connect to DB
+    db = connect('Tweets')
+    
     db_tweets_count = len(Tweet.objects)
     est_time = (((10000000 - fetch_count*100) * avg_time_per_fetch) / 100)/60
     return render_template(
@@ -138,4 +142,4 @@ def downloadDB():
 if __name__ == "__main__":
     
     t.start()
-    app.run()
+    app.run(host='0.0.0.0')
