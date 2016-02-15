@@ -1,5 +1,5 @@
 from tweet_schema import Tweet
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, redirect, url_for
 from mongoengine import *
 from subprocess import call
 import redis
@@ -7,7 +7,7 @@ import datetime
 from datetime import timedelta
 
 app = Flask(__name__)
-app.config['DEBUG'] = False
+app.config['DEBUG'] = True
 
 print 'flask started'
 
@@ -47,11 +47,14 @@ def main():
 
 @app.route("/download")
 def downloadDB():
-    return 'Currently Not Working'
-    # root_dir = os.path.dirname(os.getcwd())
-    # outfile = os.path.join(root_dir, os.pardir, 'static', os.pardir, 'tweet_db')
-    # call(["mongodump", "-d","Tweets","-o",outfile],shell=True)
-    # return send_from_directory(os.path.join(root_dir,'static'), 'tweet_db')
+    return send_from_directory('/home/ubuntu', 'tweet_db')
+
+@app.route("/create_dump")
+def createDump():
+    outfile = '/home/ubuntu/'
+    call(["mongodump", "-d","Tweets","-o",outfile],shell=True)
+    call(["zip", "-r","/home/ubuntu/zipfile.zip","/home/ubuntu/Tweets"],shell=True)
+    return redirect(url_for('main'))
 
 if __name__ == "__main__":
     # connect to DB
