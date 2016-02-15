@@ -47,7 +47,7 @@ def main():
 
 @app.route("/download")
 def downloadDB():
-    return send_from_directory('/home/ubuntu', 'tweet_db')
+    return send_from_directory('/home/ubuntu', 'zipfile.zip')
 
 @app.route("/create_dump")
 def createDump():
