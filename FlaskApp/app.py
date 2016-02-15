@@ -7,26 +7,32 @@ import datetime
 from datetime import timedelta
 
 app = Flask(__name__)
-app.config['DEBUG'] = True
-app.config['MONGODB_SETTINGS'] = {'db':'Tweets', 'alias':'default'}
+app.config['DEBUG'] = False
+
+print 'flask started'
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
+connect('Tweets')
+
+print 'db connected'
 
 @app.route("/")
 def main():
+    print 'main entered'
     fetch_count        = int(r.get('fetch_count'))
     tweet_count        = int(r.get('tweet_count'))
     modified_at        = r.get('modified_at')
-    target             = 1000000
+    target             = 100000
     avg_time_per_fetch = float(r.get('avg_time_per_fetch'))
     
     
-    db_tweets_count = len(Tweet.objects)
+    db_tweets_count = Tweet.objects().count()
     tweets_left = (target - fetch_count*100)
     est_breaks = (tweets_left/180)*15*60 # 15 min break after 180 requests
     est_time = ((tweets_left * avg_time_per_fetch) / 100) + est_breaks
     
-
+    if est_time < 0:
+        est_time = 0
 
     return render_template(
         'index.html',
@@ -49,5 +55,4 @@ def downloadDB():
 
 if __name__ == "__main__":
     # connect to DB
-    connect('Tweets')
     app.run(host='0.0.0.0')

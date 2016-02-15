@@ -1,7 +1,6 @@
 import os
 import json
 import tweepy
-import chalk
 import requests.packages.urllib3 as urllib3
 import time
 from tweet_schema import Tweet
@@ -84,11 +83,9 @@ def scrapeTweets():
                     time_per_100.append(t1-t0)
                     fetch_count = fetch_count + 1
                     avg_time_per_fetch = sum(time_per_100)/len(time_per_100)
-                    chalk.red('Avg time per fetch = {0}'.format(avg_time_per_fetch))
                     tweet_count += len(status_obj)
                     modified_at = datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')
-                    print time_per_100
-                    chalk.green("Scraped {0} tweets, Total ={1} tweets".format(
+                    print("Scraped {0} tweets, Total ={1} tweets".format(
                         len(status_obj), tweet_count))
 
                     # save all the stats to REDIS
@@ -99,8 +96,11 @@ def scrapeTweets():
                     # r.set('target', target) 
 
                 except tweepy.RateLimitError:
-                    chalk.blue("Going to Sleep")
+                    print("Going to Sleep")
                     time.sleep(15 * 60)
+		except Exception as e:
+		    print(str(e))
+	            time.sleep(15 * 60)
                 finally:
                     t0 = time.time()
                     tweet_id_list[:] = []
