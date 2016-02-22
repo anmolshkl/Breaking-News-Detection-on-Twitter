@@ -17,4 +17,5 @@ class Tweet(Document):
 	retweet_count         = IntField(default=0)
 	retweeted             = BooleanField(default=False)
 	inserted_at           = DateTimeField(default=datetime.datetime.now())
+	is_news               = BooleanField(null=True)
 	meta                  = {'collection': 'Tweets'}

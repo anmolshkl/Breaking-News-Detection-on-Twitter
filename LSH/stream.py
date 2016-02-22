@@ -51,6 +51,7 @@ class listener(StreamListener):
         self.tweet_list.append(stripped) # append to this list for writing to file later
         tweet_queue.append(stripped) # inqueue tweet
 
+        print stripped["tweet"].encode('utf-8')
         if self.num_of_tweets%100 == 0:
             with open("tweets.txt","a") as f:
                 for tweet in self.tweet_list:
@@ -83,9 +84,11 @@ def run():
     twitterStream.filter(
         # locations=[-74.2589, 40.4774, -73.7004, 40.9176], # New York
         # locations=[65, 6, 97.35, 35.956], # India 
-        track=['news','breakingnews','latest'], # we can't add location and track simultaneously
+        track=['news','breakingnews'], # we can't add location and track simultaneously
         languages=["en"],
         async=True
         )
 
 
+if __name__ == "__main__":
+	run()

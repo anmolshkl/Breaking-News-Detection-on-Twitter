@@ -55,8 +55,8 @@ def scrapeTweets():
         t0 = time.time()
         for line in file_db:
             status_obj = None
-            tweet = line.split("\t")[0]
-            tweet_id_list.append(tweet)
+            tweet_id = line.split("\t")[0]
+            tweet_id_list.append(tweet_id)
             if(len(tweet_id_list) == 100):
                 try:
                     status_obj = api.statuses_lookup(tweet_id_list, [False], [False], [True])
@@ -78,6 +78,7 @@ def scrapeTweets():
                         tweet.retweet_count         = status.retweet_count
                         tweet.retweeted             = status.retweeted
                         # tweet.inserted_at
+                        tweet.is_news               = None
                         tweet.save()
                     t1 = time.time()
                     time_per_100.append(t1-t0)
@@ -98,9 +99,9 @@ def scrapeTweets():
                 except tweepy.RateLimitError:
                     print("Going to Sleep")
                     time.sleep(15 * 60)
-		except Exception as e:
-		    print(str(e))
-	            time.sleep(15 * 60)
+        		except Exception as e:
+        		    print(str(e))
+    	            time.sleep(15 * 60)
                 finally:
                     t0 = time.time()
                     tweet_id_list[:] = []
