@@ -64,3 +64,4 @@ venv/
 # Custome Folder
 Data/
 FlaskApp/dump
+Key/
