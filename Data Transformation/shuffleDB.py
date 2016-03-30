@@ -28,6 +28,8 @@ total_tweets         = [] # final list having all the tweets
 tweet_id             = [] # a temp list to store IDs of chunk of news/misc tweets fetched
 cursor 				 = None
 group_size			 = 10000
+count 				 = 0
+temp_list  		     = []
 
 while news_tweet_count < total_news_lmt and misc_tweet_count < total_misc_lmt and total_news_lmt - news_tweet_count > news_tweet_fetch_lmt and total_misc_lmt - misc_tweet_count > misc_tweet_fetch_lmt:
 	cursor = db2.Tweets_data.find({}, {'_id':1}).sort("_id", -1).skip(news_tweet_count).limit(news_tweet_fetch_lmt)
@@ -54,8 +56,24 @@ while news_tweet_count < total_news_lmt and misc_tweet_count < total_misc_lmt an
 	
 	for tweet in tweet_id:
 		total_tweets.append(tweet)
-	
-tweet_id = []
+
+	if len(total_tweets) > 1000:
+		cursor = db2.Tweets_data.find({'_id' : {'$in': total_tweets}})
+		count += cursor.count(with_limit_and_skip=True)
+
+		print 'Processed {0} tweets in total'.format(count)
+		
+		for record in cursor:
+			record.pop("_id", None)
+			temp_list.append(record)
+		shuffle(temp_list)
+		db.shuffled_DB.Labeled_Tweets.insert(temp_list)
+		total_tweets = []
+		temp_list    = []
+	tweet_id = []
+
+tweet_id     = []
+total_tweets = []
 
 # fetch remaining news tweets
 news_tweet_fetch_lmt = total_news_lmt - news_tweet_count
@@ -70,18 +88,21 @@ cursor = db2.Tweets_data.find({}, {'_id':1}).sort("_id", 1).skip(misc_tweet_coun
 for record in cursor:
 	tweet_id.append(record['_id'])
 
-
+# shuffle the list
 shuffle(tweet_id)
 
-print("shuffled them")
+# fetch and store in new DB
+temp_list = []
+cursor = db2.Tweets_data.find({'_id' : {'$in': tweet_id}})
+count += cursor.count(with_limit_and_skip=True)
+for record in cursor:
+	record.pop("_id", None)
+	temp_list.append(record)
+shuffle(temp_list)
+db.shuffled_DB.Labeled_Tweets.insert(temp_list)
+total_tweets = []
 
-
-for tweet in tweet_id:
-	total_tweets.append(tweet)
-
-print 'total_tweets prepared'
-count = 0
-
+'''
 #create groups of 10000 tweets, with each group as a seperate list
 groups = grouper(total_tweets, group_size)
 
@@ -97,3 +118,4 @@ for group in groups:
 	db.shuffled_DB.Labeled_Tweets.insert(temp_list)
 	print(str("{0} are updated".format(count)))
 	temp_list = []
+'''

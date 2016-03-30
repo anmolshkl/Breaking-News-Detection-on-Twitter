@@ -14,8 +14,8 @@ db2 = client.shuffled_DB
 
 count = 0
 rec_count = 0
-lmt = 10000
-no_of_tweets = db2.Labeled_Tweets.find().count()
+lmt = 100000
+no_of_tweets = 500000
 tweets = {}
 
 # get data for training...
@@ -40,16 +40,8 @@ print("fetched all the news related tweets")
 
 keys =  list(tweets.keys())
 
-data = []
-target = []
 
-for key in keys:
-	data.append(tweets[key][0])
-	target.append(tweets[key][1])
-
-print(target[0:50])
-
-divider = 1000000
+divider = 350000
 trainClassifier = {'data' : data[0:divider], 'target': target[0:divider]}
 category_names = ['news', 'not news']
 
