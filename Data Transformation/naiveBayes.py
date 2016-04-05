@@ -2,24 +2,22 @@ from mongoengine import *
 from random import shuffle
 from pymongo import MongoClient
 import numpy as np
-import cleaning
 from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import CountVectorizer
-
+import cPickle
 
 client = MongoClient()
-db2 = client.shuffled_DB
+db2 = client.dump
 
 count = 0
 rec_count = 0
 lmt = 100000
-no_of_tweets = 500000
+no_of_tweets = db2.Labeled_Tweets.find().count()
 tweets = {}
 
 # get data for training...
-
 
 while rec_count < no_of_tweets:
 	cursor = db2.Labeled_Tweets.find({}, {'_id':0, 'sanitized_text' : 1, 'is_news' :1}).skip(rec_count).limit(lmt)
@@ -40,8 +38,16 @@ print("fetched all the news related tweets")
 
 keys =  list(tweets.keys())
 
+data = []
+target = []
 
-divider = 350000
+for key in keys:
+	data.append(tweets[key][0])
+	target.append(tweets[key][1])
+
+
+divider = int(0.9 * no_of_tweets)
+print divider
 trainClassifier = {'data' : data[0:divider], 'target': target[0:divider]}
 category_names = ['news', 'not news']
 
@@ -81,3 +87,7 @@ for doc, category in zip(testClassifier['data'], predicted):
 
 print(str("{0} are matched".format(matched)))
 print(np.mean(predicted == testClassifier['target']))
+
+# save the classifier
+with open('naive_bayes_classifier_90_10.pkl', 'wb') as fid:
+    cPickle.dump(clf, fid)    

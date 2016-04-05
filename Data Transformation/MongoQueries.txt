@@ -1,0 +1,1 @@
+db.Tweets.aggregate( {$group : {_id : "$tweet_id"} }, {$group: {_id:1, count: {$sum : 1 }}});
