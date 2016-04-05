@@ -13,9 +13,6 @@ Discover news as the events they are describing are unfolding, by using tweets p
 
 ## Data Set
 
-DESCRIPTION
-===========
-
 The Twitter Streaming API is used for the puprose of collecting tweets in real-time. However, for evaluating our system, we need to maintain a 'static' data (stored tweets from Streaming API) and not real-time dynamic data (Streaming API) so that we can generate results which are comprarable.
 
 For the purpose of building training/testing dataset for machine learning based classification algorithm (like Naive Bayes), we followed prominent news channels to gather News tweets and other gossip channels/individuals for personal/opinionated tweets. The database consisted of only 0.6 million tweets due rigorous limits set by Twitter.
