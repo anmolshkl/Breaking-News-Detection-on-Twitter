@@ -40,9 +40,9 @@ def getData():
 			tweet_list = []
 			tweet_list.append(record['sanitized_text'])
 			if record['is_news']:
-				tweet_list.append(0)
+				tweet_list.append(1)
 			else:
-				tweet_list.append(1)	
+				tweet_list.append(0)	
 			tweets[count] = tweet_list
 			count = count + 1
 		rec_count += lmt
