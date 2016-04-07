@@ -1,13 +1,15 @@
-#!/usr/bin/python
+import os
+os.environ['https_proxy']='http://172.31.16.10:8080'
 
 from tweepy import Stream
 from tweepy import OAuthHandler
 from tweepy.streaming import StreamListener
 from time import strftime
 import sys
-import os
 import json
 import global_vars
+import pika
+import time
 
 # The below keys can be gotten by creating an
 # application on http://apps.twitter.com
@@ -15,7 +17,15 @@ ckey        = 'H8x9RBCEGbyTCBqUdVjxzmUDs'
 csecret     = 'kf1R7kgq4zNgzhc3eggkXAxSTIUwPA9a9NoyYtfiS0xWNgSkwr'
 atoken      = '835513550-cRrDufNgd93ZUhEbaZ8FCiZQZ1awSg5Ll1Qaau3j'
 asecret     = 'jBoh0jl1W7N32W0FfAbXwuuLDJdmcrR90SGpFJMXv68hS'
-tweet_queue = global_vars.tweet_queue
+
+# connect to Rabbitmq message queue
+connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+channel    = connection.channel()
+
+# declare/create a queue if it doesn't exists
+# ProjectName.Q.<Environment>.<ConsumerName>.MessageTypeName
+channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=True)
+
 
 class listener(StreamListener):
     num_of_tweets = 0
@@ -24,7 +34,6 @@ class listener(StreamListener):
         decode = json.loads(data)
         stripped = {}
         user = {}
-        global tweet_queue
 
         user["name"] = decode["user"]["name"]
         user["screenName"] = decode["user"]["screen_name"]
@@ -44,29 +53,38 @@ class listener(StreamListener):
         stripped["coordinates"] = coordinates
 
         self.num_of_tweets = self.num_of_tweets + 1
-
         # sys.stdout.write(json.dumps(decode) + '\n')
         # sys.stdout.write(json.dumps(stripped) + '\n')
         
         self.tweet_list.append(stripped) # append to this list for writing to file later
-        tweet_queue.append(stripped) # inqueue tweet
+
+        channel.basic_publish(exchange='',
+                      routing_key='FYP.Q.Filter.TweetMessage',
+                      body=json.dumps(stripped),
+                      properties=pika.BasicProperties(
+                         delivery_mode = 2, # make message persistent
+                      ))
 
         print stripped["tweet"].encode('utf-8')
+        
         if self.num_of_tweets%100 == 0:
             with open("tweets.txt","a") as f:
                 for tweet in self.tweet_list:
                     f.write(json.dumps(tweet) + '\n')
             self.tweet_list = []
         if self.num_of_tweets % 10 == 0:
-            sys.stderr.write("fetched " + str(self.num_of_tweets) + " tweets..." + '\n')
+            sys.stdout.write("fetched " + str(self.num_of_tweets) + " tweets..." + '\n')
 
         return True
 
     def on_error(self, status):
         print >> sys.stderr, 'Encountered an error:', status
-        if status_code == 420:
+        
+        if status == 420:
+            print "Sleeping for 1 min"
+            time.sleep(70)
             #returning False in on_data disconnects the stream
-            return False
+            return True
 
         return True # else keep stream alive
 
@@ -81,13 +99,13 @@ def run():
     # Coordinates below is a bounding box roughly around New York City
     # twitterStream.filter(locations=[-74.2589, 40.4774, -73.7004, 40.9176])
     # Bounding box coordinates for India
+    
+        
     twitterStream.filter(
-        # locations=[-74.2589, 40.4774, -73.7004, 40.9176], # New York
-        # locations=[65, 6, 97.35, 35.956], # India 
-        track=['news','breakingnews'], # we can't add location and track simultaneously
+        # locations=[-74.2589, 40.4774, -73.7004, 40.9176],
+        track=['news','breakingnews'], # we can't add location and track simultaneously 
         languages=["en"],
-        async=True
-        )
+        async=True)
 
 
 if __name__ == "__main__":
