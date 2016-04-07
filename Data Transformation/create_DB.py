@@ -27,13 +27,15 @@ def getTweets():
     keys_file_path = os.path.join(project_root, 'Key', 'api_keys.json')
 
     with open(keys_file_path) as api_keys:    
-        keys = json.load(api_keys)[0]
+        keys = json.load(api_keys)
 
-    # provide auth params & obtain an instance of API
-    auth = tweepy.OAuthHandler(keys['consumer_key'], keys['consumer_secret'])
-    auth.set_access_token(keys['access_token'], keys['access_token_secret'])
-
-    api = tweepy.API(auth)
+    # obtain multiple instances of Twitter API to circumvent rate limit
+    authList = []
+    apiList  = []
+    for i in range(len(keys)):
+        authList[i] = tweepy.OAuthHandler(keys[i]['consumer_key'], keys[i]['consumer_secret'])
+        authList[i].set_access_token(keys[i]['access_token'], keys[i]['access_token_secret'])
+        apiList[i] = tweepy.API(authList[i])
 
     # db_path = os.path.join(os.path.dirname(__file__), os.pardir, 'Data/tweet_ids') 
 
@@ -58,10 +60,12 @@ def getTweets():
     rate_limit     = 180
     no_of_requests = 0
     tweet_list     = []
+    k              = 0 # current_api_index
+    api_wait_end_time  = time.time() # stores timestamp till when the first API might have to wait
 
     while(total_no_of_tweets < 3200 * len(user_id)):
         try:
-            status_obj = api.user_timeline(user_id = user_id[number], count = 200, max_id = last_id[number])
+            status_obj = apiList[k].user_timeline(user_id = user_id[number], count = 200, max_id = last_id[number])
             # print "fetched {0} tweets".format(len(status_obj))
             no_of_requests += 1
             for status in status_obj:
@@ -98,7 +102,7 @@ def getTweets():
                 print "Saving Tweets to DB"
                 # save tweets to db
                 Tweet.objects.insert(tweet_list)
-
+                tweet_list = []
                 number += 1
 
                 # if we have fetched tweets for every user, just return
@@ -109,16 +113,34 @@ def getTweets():
                 no_of_tweets = 0
 
         except tweepy.RateLimitError:
-            print("Going to Sleep")
-            print no_of_requests
-            t0 = time.time() - t0
-            if t0 > 16*60:
-                print "sleeping for {0} sec".format(15*60) 
-                time.sleep(15*60) 
-            else:
-                print "sleeping for {0} sec".format(16*60 - t0)
-                time.sleep(16*60 - t0)
-            t0 = time.time()
+            print "Saving Tweets to DB"
+            # save tweets to db
+            Tweet.objects.insert(tweet_list)
+            tweet_list = [] 
+            if k == len(apiList) - 1:
+                if api_wait_end_time < time.time():
+                    # we dont need to wait, so pass
+                    pass
+                else:
+                    sleep_time = api_wait_end_time - time.time()
+                    print "create_db: sleeping for {0} seconds".format(sleep_time)
+                    time.sleep(sleep_time)
+            k = (k + 1) % len(apiList)
+            if k == 0:
+                # update api_wait_end_time
+                api_wait_end_time = time.time() + 15*60
+
+            # print("Going to Sleep")
+            # print no_of_requests
+            # t0 = time.time() - t0
+            # if t0 > 16*60:
+            #     print "sleeping for {0} sec".format(15*60) 
+            #     time.sleep(15*60) 
+            # else:
+            #     print "sleeping for {0} sec".format(16*60 - t0)
+            #     time.sleep(16*60 - t0)
+            # t0 = time.time()
+
         except Exception as e:
             print("exception came")
             print(str(e))
