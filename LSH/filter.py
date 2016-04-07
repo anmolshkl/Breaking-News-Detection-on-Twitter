@@ -19,9 +19,14 @@ count_vect        = None
 tfidf_transformer = None
 clf               = None
 
+# declare all queues
 channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.Cluster.NewsTweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.Generic.NonNewsTweetMessage', durable=True)
+
 print('[*] Waiting for messages. To exit press CTRL+C')
 
+# initialize models here(saved to disk already)
 models = [['count_vect.60_40.0.886620715777.plk', 'tfidf_transformer.60_40.0.886620715777.plk', 'clf.60_40.0.886620715777.plk']]
 
 def loadModels():
