@@ -10,10 +10,10 @@ import cPickle
 import os
 
 client            = MongoClient()
-db2               = client.dump
+db2               = client.shuffled_DB2
 tweets            = {}
 no_of_tweets      = 0
-split			  = 0.6  # ratio in which to split dataset
+split			  = 0.8  # ratio in which to split dataset
 accuracy		  = 0
 count_vect        = None
 clf               = None 
@@ -70,6 +70,7 @@ def train(data, target):
 
 	### Training the Naive Bayes Classifier
 
+	print 'naiveBayes: Training on {0}% data'.format(split*100)
 	count_vect = CountVectorizer()
 	X_train_counts = count_vect.fit_transform(trainClassifier['data'])
 	print('naiveBayes: Transformed the sparse dataset')
