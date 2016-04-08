@@ -1,5 +1,4 @@
 import math
-from tweet import Tweet
 
 def isAscii(s):
     try:
@@ -8,10 +7,10 @@ def isAscii(s):
     except (UnicodeDecodeError, UnicodeEncodeError):
         return False
 
-def qualified(msg, taglist, ignorelist, mintok):
+def qualified(tweet_obj, taglist, ignorelist, mintok):
     t = None
-    if isAscii(msg):
-        t = Tweet(msg,0,0,0)
+    if isAscii(tweet_obj.msg):
+        t = tweet_obj
     else:
         return False
     to = t.getTokens()
