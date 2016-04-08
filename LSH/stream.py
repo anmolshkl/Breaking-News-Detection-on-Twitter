@@ -34,46 +34,37 @@ class listener(StreamListener):
         decode = json.loads(data)
         stripped = {}
         user = {}
+        if 'user' in decode:
+            user["name"] = decode["user"]["name"]
+            user["screenName"] = decode["user"]["screen_name"]
+            user["following"] = decode["user"]["friends_count"]
+            user["followers"] = decode["user"]["followers_count"]
+            user["id"] = decode["user"]["id"]
+            user["statusCount"] = decode["user"]["statuses_count"]
 
-        user["name"] = decode["user"]["name"]
-        user["screenName"] = decode["user"]["screen_name"]
-        user["following"] = decode["user"]["friends_count"]
-        user["followers"] = decode["user"]["followers_count"]
-        user["id"] = decode["user"]["id"]
-        user["statusCount"] = decode["user"]["statuses_count"]
+            stripped["user"] = user
+            stripped["tweet"] = decode["text"]
+            stripped["id"] = decode["id"]
+            stripped["timestamp"] = decode["timestamp_ms"]
+            stripped["hashtags"] = decode["entities"]["hashtags"]
+            stripped["mentions"] = decode["entities"]["user_mentions"]
+            stripped["retweetedUsingUI"] = decode["retweeted"]
+            coordinates = decode["coordinates"]
+            stripped["coordinates"] = coordinates
 
-        stripped["user"] = user
-        stripped["tweet"] = decode["text"]
-        stripped["id"] = decode["id"]
-        stripped["timestamp"] = decode["timestamp_ms"]
-        stripped["hashtags"] = decode["entities"]["hashtags"]
-        stripped["mentions"] = decode["entities"]["user_mentions"]
-        stripped["retweetedUsingUI"] = decode["retweeted"]
-        coordinates = decode["coordinates"]
-        stripped["coordinates"] = coordinates
-
-        self.num_of_tweets = self.num_of_tweets + 1
-        # sys.stdout.write(json.dumps(decode) + '\n')
-        # sys.stdout.write(json.dumps(stripped) + '\n')
-        
-        self.tweet_list.append(stripped) # append to this list for writing to file later
-
-        channel.basic_publish(exchange='',
-                      routing_key='FYP.Q.Filter.TweetMessage',
-                      body=json.dumps(stripped),
-                      properties=pika.BasicProperties(
-                         delivery_mode = 2, # make message persistent
-                      ))
-
-        print stripped["tweet"].encode('utf-8')
-        
-        if self.num_of_tweets%100 == 0:
-            with open("tweets.txt","a") as f:
-                for tweet in self.tweet_list:
-                    f.write(json.dumps(tweet) + '\n')
-            self.tweet_list = []
-        if self.num_of_tweets % 10 == 0:
-            sys.stdout.write("fetched " + str(self.num_of_tweets) + " tweets..." + '\n')
+            self.num_of_tweets = self.num_of_tweets + 1
+            # sys.stdout.write(json.dumps(decode) + '\n')
+            # sys.stdout.write(json.dumps(stripped) + '\n')
+            
+            channel.basic_publish(exchange='',
+                          routing_key='FYP.Q.Filter.TweetMessage',
+                          body=json.dumps(stripped),
+                          properties=pika.BasicProperties(
+                             delivery_mode = 2, # make message persistent
+                          ))
+            
+            if self.num_of_tweets % 10 == 0:
+                sys.stdout.write("fetched " + str(self.num_of_tweets) + " tweets..." + '\n')
 
         return True
 
@@ -95,17 +86,19 @@ class listener(StreamListener):
 def run():
     auth = OAuthHandler(ckey, csecret)
     auth.set_access_token(atoken, asecret)
-    twitterStream = Stream(auth, listener())
+    try:
+        twitterStream = Stream(auth, listener())
+    except IncompleteRead:
+        pass
     # Coordinates below is a bounding box roughly around New York City
     # twitterStream.filter(locations=[-74.2589, 40.4774, -73.7004, 40.9176])
     # Bounding box coordinates for India
-    
+    # https://en.wikipedia.org/wiki/User:The_Anome/country_bounding_boxes
+    # locations=[65.000, 6.000, 97.350, 35.956 ], India
+    # locations=[167.740, 8.732, 167.740, 8.732], USA
+    # track=['news','breakingnews'], # we can't add location and track simultaneously 
         
-    twitterStream.filter(
-        # locations=[-74.2589, 40.4774, -73.7004, 40.9176],
-        track=['news','breakingnews'], # we can't add location and track simultaneously 
-        languages=["en"],
-        async=True)
+    twitterStream.filter(track=['news','breakingnews'],languages=["en"], async=True)
 
 
 if __name__ == "__main__":
