@@ -1,5 +1,11 @@
 import sys, json, entr, time, Queue
-import global_vars
+import pika
+
+connection        = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+channel           = connection.channel()
+
+# ProjectName.Q.<Environment>.<ConsumerName>.MessageTypeName
+channel.queue_declare(queue='FYP.Q.Grouper.ClusteredTweetMessage', durable=True)
 
 MIN_UNIQUES              = 2
 MIN_ENTROPY              = 3.5
@@ -13,6 +19,10 @@ WINDOW_SIZE_IN_SECONDS   = 60
 stories      = {}
 storyMap     = {}
 storiesUsers = {}
+
+n = 0
+
+processed_tweet_queue = Queue.Queue()
 
 def createNew(story):
     storiesUsers[story['id']] = set([story['user']['id']])
@@ -92,27 +102,22 @@ def dump(starttime, current):
 # Set starttime to a high value to process entire input as one story
 # Setting to 0 will trigger output on first tweet, thereafter working normally
 
-def run():
+def run(tweet_list):
     print "getting stories"
-    queue = global_vars.processed_tweet_queue
-    starttime = 0
-    current = 0
-    n = 0
-    while True:
-        if not queue.empty():
-            # t = json.loads(l)
-            t = queue.get()
-            if t['cossim'] >= MIN_COSSIM_FOR_EXISTING:
-                insertToExisting(t)
-            else:
-                createNew(t)
-
-            current = int(t['timestamp']) / 1000
-            n += 1
-            if current - starttime > WINDOW_SIZE_IN_SECONDS:
-                dump(starttime, current)
-                sys.stderr.write('Tweets done: ' + str(n) + '\n')
-                starttime = current
+    queue = processed_tweet_queue
+    
+    for t in tweet_list:
+        # t = json.loads(l)
+        if t['cossim'] >= MIN_COSSIM_FOR_EXISTING:
+            insertToExisting(t)
+        else:
+            createNew(t)
+        current = int(t['timestamp']) / 1000
+        n += 1
+        if current - starttime > WINDOW_SIZE_IN_SECONDS:
+            dump(starttime, current)
+            sys.stderr.write('Tweets done: ' + str(n) + '\n')
+            starttime = current
         else:
             print 'processed_tweet_queue empty.Going to sleep'
             time.sleep(2)
@@ -120,3 +125,31 @@ def run():
     dump(starttime, current)
     sys.stderr.write('Total number of stories: ' + str(len(stories)) + '\n')
     sys.stderr.write('Total number of tweets: ' + str(n) + '\n')
+
+def callback(ch, method, properties, body):
+    global n
+    current    = 0
+    starttime  = 0
+    json_tweet = json.loads(body)
+    
+    if json_tweet['cossim'] >= MIN_COSSIM_FOR_EXISTING:
+        insertToExisting(json_tweet)
+    else:
+        createNew(json_tweet)
+
+    current = int(json_tweet['timestamp']) / 1000
+    n += 1
+    
+    if n > 5000:
+        dump(starttime, current)
+        sys.stderr.write('Tweets done: ' + str(n) + '\n')
+        starttime = current
+        n = n - 5000
+    # acknowledge the sender (streamer)
+    ch.basic_ack(delivery_tag = method.delivery_tag)
+
+
+if __name__ == '__main__':
+    channel.basic_qos(prefetch_count=10)
+    channel.basic_consume(callback,queue='FYP.Q.Grouper.ClusteredTweetMessage')
+    channel.start_consuming()
