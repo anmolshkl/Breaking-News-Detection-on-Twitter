@@ -1,4 +1,5 @@
 import string
+import utils
 
 def isAscii(s):
     try:
@@ -9,7 +10,7 @@ def isAscii(s):
 
 class Tweet:
     def __init__(self, msg, timestamp, msgid, uid):
-        self.msg       = msg
+        self.msg       = utils.cleanThis(msg)
         self.timestamp = timestamp
         self.msgid     = msgid
         self.vector    = None
