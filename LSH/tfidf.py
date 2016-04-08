@@ -17,13 +17,11 @@ class TfIdf:
     idfMap = {}
 
     @classmethod
-    def getVals(cls, tweet, oovMap):
+    def getVals(cls, tweet):
         before = len(cls.uniqWords)
         tfMap = {}      # stores frequency for a term in a tweet
         words = tweet.getTokens()
         for w in words:
-            # if w in oovMap:
-            #     w = oovMap[w]
             if w in tfMap:
                 tfMap[w] += 1
             else:
