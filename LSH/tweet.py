@@ -10,7 +10,7 @@ def isAscii(s):
 
 class Tweet:
     def __init__(self, msg, timestamp, msgid, uid):
-        self.msg       = utils.cleanThis(msg)
+        self.msg       = msg
         self.timestamp = timestamp
         self.msgid     = msgid
         self.vector    = None

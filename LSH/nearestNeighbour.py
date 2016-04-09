@@ -8,8 +8,12 @@ import sys, json, utils, math
 import get_stories
 import pika
 
-
-print 'start 1'
+'''
+This script reads tweet from the FYP.Q.NearestNeighbour.NewsTweetMessage queue
+and attaches nearest neighbour info (nearest tweet ID, cosine similarity) 
+using LSH to the tweet. It then forwards the tweet to 
+FYP.Q.GetStories.ClusteredTweetMessage Queue.
+'''
 
 L             = 36
 K             = 13
@@ -18,7 +22,7 @@ RECENT_TWEETS = 2000
 MIN_TOKENS    = 2
 
 # tweets consisting of these words would be ignored
-IGNORE = ['i', 'im', 'me', 'mine', 'you', 'yours']
+IGNORE = ['i', 'im', 'me', 'mine', 'you', 'yours', 'free', 'download']
 
 # tweets consisting these words would be picked --deprecated
 TAGS   = ['#news','#breakingnews']
@@ -30,29 +34,36 @@ recent  = RecentTweets(RECENT_TWEETS)
 connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
 channel    = connection.channel()
 channel.exchange_declare(exchange='tweets', type='direct')
-result     = channel.queue_declare(queue='FYP.Q.Cluster.NewsTweetMessage', durable=True)
+result     = channel.queue_declare(queue='FYP.Q.NearestNeighbour.NewsTweetMessage', durable=True)
 queue_name = result.method.queue
 channel.queue_bind(exchange='tweets', queue=queue_name, routing_key='news')
 
 # declare outgoing queue
-channel.queue_declare(queue='FYP.Q.Grouper.ClusteredTweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.GetStories.ClusteredTweetMessage', durable=True)
 
 print(' [*] Waiting for Tweets. To exit press CTRL+C')
 
 
 def getClosestNeighborBuckets(tweet):
+    ''' 
+    This function fetches all the possible collisions
+    and aggregates the duplicates and returns the ones
+    with maximum number of collisions across all buckets
+    '''
     poss = buckets.getPossibleNeighbors(tweet)
     aggr = {}
-    look = {}
+    lookup = {}
     for e in poss:
         if e.msgid in aggr:
             aggr[e.msgid] += 1
         else:
             aggr[e.msgid] = 1
-            look[e.msgid] = e
+            lookup[e.msgid] = e
+
+    # sort the aggregated messages based on frequence
     neigh = sorted(aggr.iteritems(), key=itemgetter(1), reverse=True)
     neigh = [z[0] for z in neigh[:min(len(neigh),(3*L))]]
-    neigh = [look[k] for k in neigh]
+    neigh = [lookup[k] for k in neigh]
     return utils.closestCossim(tweet, neigh)
 
 def getClosestNeighborRecent(tweet, cosBuck):
@@ -78,20 +89,18 @@ processed = 0
 
 def callback(ch, method, properties, body):
     global tweet_obj, done, starttime, skipped, processed, systime
-
-    json_tweet     = json.loads(body)
-    sanitized_text = json_tweet['tweet']
-    
-    msg       = sanitized_text
-    ts        = int(json_tweet['timestamp'])
-    msgid     = int(json_tweet['id'])
-    uid       = int(json_tweet['user']['id'])
-    tweet_obj = Tweet(msg, ts, msgid, uid)
+    json_tweet = json.loads(body)
+    msg        = json_tweet['sanitized_text']
+    ts         = int(json_tweet['timestamp'])
+    msgid      = int(json_tweet['id'])
+    uid        = int(json_tweet['user']['id'])
+    tweet_obj  = Tweet(msg, ts, msgid, uid)
     if utils.qualified(tweet_obj, TAGS, IGNORE, MIN_TOKENS):
         incr = TfIdf.getVals(tweet_obj)
         # print tweet.getVector()
         buckets.updateRndVec(incr)
         closeBuck    = getClosestNeighborBuckets(tweet_obj)
+        print msg
         if closeBuck[0] is not None:
             print "CLOSE BUCK: {0}, {1}".format(closeBuck[0].msg, closeBuck[1])
         closeRecent  = getClosestNeighborRecent(tweet_obj, closeBuck[1])
@@ -103,7 +112,7 @@ def callback(ch, method, properties, body):
             json_tweet['nearneigh'] = -1
         json_tweet['cossim'] = closeoverall[1]
         channel.basic_publish(exchange='',
-                      routing_key='FYP.Q.Grouper.ClusteredTweetMessage',
+                      routing_key='FYP.Q.GetStories.ClusteredTweetMessage',
                       body=json.dumps(json_tweet),
                       properties=pika.BasicProperties(
                          delivery_mode = 2, # make message persistent

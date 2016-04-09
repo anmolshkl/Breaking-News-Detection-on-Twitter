@@ -25,15 +25,15 @@ total_tweets      = 0
 
 # declare all queues
 # ProjectName.Q.<Environment>.<ConsumerName>.MessageTypeName
-channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=True)
-channel.queue_declare(queue='FYP.Q.Cluster.NewsTweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=False)
+channel.queue_declare(queue='FYP.Q.NearestNeighbour.NewsTweetMessage', durable=True)
 channel.queue_declare(queue='FYP.Q.Generic.NonNewsTweetMessage', durable=True)
 
 # declare exchange along with its type
 channel.exchange_declare(exchange='tweets', type='direct')
 
 # bind exchange to our queues
-channel.queue_bind(exchange='tweets', queue="FYP.Q.Cluster.NewsTweetMessage", routing_key='news')
+channel.queue_bind(exchange='tweets', queue="FYP.Q.NearestNeighbour.NewsTweetMessage", routing_key='news')
 channel.queue_bind(exchange='tweets', queue="FYP.Q.Generic.NonNewsTweetMessage", routing_key='non_news')
 
 
@@ -68,12 +68,16 @@ def callback(ch, method, properties, body):
     json_tweet     = json.loads(body)
     text           = json_tweet['tweet']
     sanitized_text = utils.cleanThis(text)
-    X_new_counts = count_vect.transform([sanitized_text])
-    X_new_tfidf  = tfidf_transformer.transform(X_new_counts)
-    predicted    = clf.predict(X_new_tfidf)
+    X_new_counts   = count_vect.transform([sanitized_text])
+    X_new_tfidf    = tfidf_transformer.transform(X_new_counts)
+    predicted      = clf.predict(X_new_tfidf)
+    
+    # add sanitized text to msg body
+    json_tweet['sanitized_text'] = sanitized_text
+
     if predicted[0] == 1:
-        # send news to News queue - FYP.Q.Cluster.NewsTweetMessage
-        channel.basic_publish(exchange='tweets', routing_key='news', body=body)
+        # send news to News queue - FYP.Q.Cluster.NearestNeighbour
+        channel.basic_publish(exchange='tweets', routing_key='news', body=json.dumps(json_tweet))
 
         total_news = total_news + 1
 
@@ -87,7 +91,7 @@ def callback(ch, method, properties, body):
     else:
         # send news to None-News queue FYP.Q.Generic.NonNewsTweetMessage
         channel.basic_publish(exchange='tweets', routing_key='non_news', \
-                              body=body)
+                              body=json.dumps(json_tweet))
         total_non_news = total_non_news + 1                             
     
     if total_tweets % 100 == 0:

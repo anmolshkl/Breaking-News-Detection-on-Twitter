@@ -161,4 +161,4 @@ def cleanThis (strng):
                 clean_string += cl_word
                 first = False   
                 
-    return clean_string
+    return clean_string.lower()

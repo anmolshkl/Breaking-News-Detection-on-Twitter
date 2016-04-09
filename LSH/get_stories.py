@@ -1,24 +1,36 @@
 import sys, json, entr, time, Queue
 import pika
 
+'''
+This is the clustering script of the program. It reads each tweet from 
+FYP.Q.GetStories.ClusteredTweetMessage, then decodes the JSON they arrive
+in into a Python dictionary repre-sentation. After this it creates a new story
+with the tweet as the first post if the cosine similarity between the tweet 
+and its nearest neighbor is less than MIN COSSIM FOR EXISTING. If it is not, 
+it is inserted into the same story as its nearest neighbor. After this, if the 
+delta between the timestamp of the tweet being processed and the variable starttime 
+is more than WINDOW SIZE IN SECONDS seconds, the current stories are fed into next queue,
+before updating start-time with the timestamp of the current tweet.
+'''
+
 connection        = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
 channel           = connection.channel()
 
 # ProjectName.Q.<Environment>.<ConsumerName>.MessageTypeName
-channel.queue_declare(queue='FYP.Q.Grouper.ClusteredTweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.GetStories.ClusteredTweetMessage', durable=True)
 
-MIN_UNIQUES              = 2
+MIN_UNIQUES              = 8
 MIN_ENTROPY              = 3.5
 MAX_EMPTY_RUNS           = 3
 MIN_TWEETS_IN_SLICE      = 1
 MIN_COSSIM_FOR_EXISTING  = 0.5
 # WINDOW_SIZE_IN_SECONDS = 900
 WINDOW_SIZE_IN_SECONDS   = 60
+MAX_TWEETS_IN_WINDOW     = 2000
 
-
-stories      = {}
-storyMap     = {}
-storiesUsers = {}
+stories      = {}   # a map of all stories with stories ID (tweet ID) as key
+storyMap     = {}   #
+storiesUsers = {}   # a mapy of "Tweet ID: unique ID of users who have tweeted a tweet"
 
 n = 0
 
@@ -28,6 +40,7 @@ def createNew(story):
     storiesUsers[story['id']] = set([story['user']['id']])
     news = {}
     ent  = 0
+    # no entities detected yet
     if 'entities' in story:
         ent = len(story['entities'])
     s                     = (story['id'], story['tweet'], ent)
@@ -75,56 +88,30 @@ def insertToExisting(story):
     else:
         replaceStory(story, stid)
 
-def dump(starttime, current):
-        d = {}
-        d['data'] = {}
-        for k,v in stories.iteritems():
-            if v != None:
-                if v['thisslice'] < MIN_TWEETS_IN_SLICE:
-                    v['runs-with-0'] += 1
-                else:
-                    v['runs-with-0'] = 0
-                    if entr.getEntropy(v) >= MIN_ENTROPY and v['unique'] >= MIN_UNIQUES:
-                        d['data'][k] = v
-        
-        d['start'] = starttime
-        d['end'] = current
-        if len(d['data']) > 0:
-            sys.stdout.write(json.dumps(d) + '\n')
-
-        for k,v in stories.iteritems():
-            if v != None:
-                v['thisslice'] = 0
-                v['tweets'] = []
-                if v['runs-with-0'] >= MAX_EMPTY_RUNS:
-                    stories[k] = None
-
-# Set starttime to a high value to process entire input as one story
-# Setting to 0 will trigger output on first tweet, thereafter working normally
-
-def run(tweet_list):
-    print "getting stories"
-    queue = processed_tweet_queue
+def dump(starttime, current, fid):
+    d = {}
+    d['data'] = {}
+    for k,v in stories.iteritems():
+        if v != None:
+            if v['thisslice'] < MIN_TWEETS_IN_SLICE:
+                v['runs-with-0'] += 1
+            else:
+                v['runs-with-0'] = 0
+                if entr.getEntropy(v) >= MIN_ENTROPY and v['unique'] >= MIN_UNIQUES:
+                    d['data'][k] = v
     
-    for t in tweet_list:
-        # t = json.loads(l)
-        if t['cossim'] >= MIN_COSSIM_FOR_EXISTING:
-            insertToExisting(t)
-        else:
-            createNew(t)
-        current = int(t['timestamp']) / 1000
-        n += 1
-        if current - starttime > WINDOW_SIZE_IN_SECONDS:
-            dump(starttime, current)
-            sys.stderr.write('Tweets done: ' + str(n) + '\n')
-            starttime = current
-        else:
-            print 'processed_tweet_queue empty.Going to sleep'
-            time.sleep(2)
+    d['start'] = starttime
+    d['end'] = current
+    if len(d['data']) > 0:
+        fid.write(json.dumps(d) + '\n')
 
-    dump(starttime, current)
-    sys.stderr.write('Total number of stories: ' + str(len(stories)) + '\n')
-    sys.stderr.write('Total number of tweets: ' + str(n) + '\n')
+    for k,v in stories.iteritems():
+        if v != None:
+            v['thisslice'] = 0
+            v['tweets'] = []
+            if v['runs-with-0'] >= MAX_EMPTY_RUNS:
+                stories[k] = None
+
 
 def callback(ch, method, properties, body):
     global n
@@ -140,16 +127,17 @@ def callback(ch, method, properties, body):
     current = int(json_tweet['timestamp']) / 1000
     n += 1
     
-    if n > 5000:
-        dump(starttime, current)
-        sys.stderr.write('Tweets done: ' + str(n) + '\n')
-        starttime = current
-        n = n - 5000
+    if n >= MAX_TWEETS_IN_WINDOW:
+        with open('file.txt', 'w') as fid:
+            dump(starttime, current, fid)
+            sys.stderr.write('Tweets done: ' + str(n) + '\n')
+            starttime = current
+            n = n - MAX_TWEETS_IN_WINDOW
     # acknowledge the sender (streamer)
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
 
 if __name__ == '__main__':
     channel.basic_qos(prefetch_count=10)
-    channel.basic_consume(callback,queue='FYP.Q.Grouper.ClusteredTweetMessage')
+    channel.basic_consume(callback,queue='FYP.Q.GetStories.ClusteredTweetMessage')
     channel.start_consuming()

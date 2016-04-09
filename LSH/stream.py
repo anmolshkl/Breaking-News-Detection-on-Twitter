@@ -24,7 +24,7 @@ channel    = connection.channel()
 
 # declare/create a queue if it doesn't exists
 # ProjectName.Q.<Environment>.<ConsumerName>.MessageTypeName
-channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=True)
+channel.queue_declare(queue='FYP.Q.Filter.TweetMessage', durable=False)
 
 
 class listener(StreamListener):
@@ -59,9 +59,7 @@ class listener(StreamListener):
             channel.basic_publish(exchange='',
                           routing_key='FYP.Q.Filter.TweetMessage',
                           body=json.dumps(stripped),
-                          properties=pika.BasicProperties(
-                             delivery_mode = 2, # make message persistent
-                          ))
+                          )
             
             if self.num_of_tweets % 10 == 0:
                 sys.stdout.write("fetched " + str(self.num_of_tweets) + " tweets..." + '\n')
