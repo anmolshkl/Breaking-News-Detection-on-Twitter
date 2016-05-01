@@ -54,6 +54,7 @@ def createNew(story):
     storyMap[story['id']] = story['id']
 
 def replaceStory(story, stid):
+    print "Entered replace story"
     storiesUsers[stid] = set([story['user']['id']])
     news = {}
     ent = 0
@@ -78,7 +79,7 @@ def insertToExisting(story):
         ent  = 0
         if 'entities' in story:
             ent = len(story['entities'])
-        s                     = (story['id'], story['tweet'], ent)
+        s = (story['id'], story['tweet'], story['sanitized_text'] ent)
         q['tweets'].append(s)
         q['total']            += 1
         q['thisslice']        += 1

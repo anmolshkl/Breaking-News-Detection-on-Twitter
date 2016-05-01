@@ -11,7 +11,7 @@ import math, utils
 
 class TfIdf:
     uniq_words     = {} # stores no of unique docs across which word is present
-    pos_map        = {}     # stores unique words and their position in uniq_words map, across all tweets
+    pos_map        = {} # stores unique words and their position in uniq_words map, across all tweets
     pos_in_map     = 0  # stores index available for new unique word
     num_prev_tweet = 1.0
     idfMap         = {}

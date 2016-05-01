@@ -6,8 +6,15 @@ from sklearn import metrics
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.grid_search import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import SGDClassifier
+from sklearn import metrics
+from sklearn import svm
+
 import cPickle
 import os
+from sklearn import linear_model
 
 client            = MongoClient()
 db2               = client.shuffled_DB2
@@ -20,6 +27,13 @@ clf               = None
 tfidf_transformer = None
 project_root	  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 model_dump_path   = os.path.join(project_root, 'Classifier Models', 'Naive Bayes')
+text_clf_nb 	  = None
+gs_clf			  = None
+
+
+parameters = {'vect__ngram_range': [(1, 1), (1, 2)],
+'tfidf__use_idf': (True, False),
+'clf__alpha': (1e-2, 1e-3)}
 
 # return [[x1, x2, x3 ...], [y1, y2, y3 ...]]
 def getData():
@@ -62,63 +76,68 @@ def getData():
 def train(data, target):
 	count   = 0
 	matched = 0
-	global split, accuracy, clf, tfidf_transformer, count_vect
+	global split, accuracy, clf, tfidf_transformer, count_vect, text_clf_nb, gs_clf
 
 	divider         = int(split * no_of_tweets)
 	trainClassifier = {'data' : data[0:divider], 'target': target[0:divider]}
 	category_names  = ['news', 'not news']
 
 	### Training the Naive Bayes Classifier
-
 	print 'naiveBayes: Training on {0}% data'.format(split*100)
-	count_vect = CountVectorizer(ngram_range=(1,2))
-	X_train_counts = count_vect.fit_transform(trainClassifier['data'])
-	print('naiveBayes: Transformed the sparse dataset')
-	print(X_train_counts.shape)
 
-	tfidf_transformer = TfidfTransformer(use_idf=False)
-	X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+	text_clf_nb = Pipeline([('vect', CountVectorizer()),
+		('tfidf', TfidfTransformer()),
+		('clf', MultinomialNB())
+		])
 
-	clf = MultinomialNB(alpha=0.01).fit(X_train_tfidf, trainClassifier['target'])
+	text_clf_sgdc = Pipeline([('vect', CountVectorizer()),
+		('tfidf', TfidfTransformer()),
+		('clf', SGDClassifier(loss='log', penalty='l2',
+			alpha=1e-3, n_iter=5, random_state=42)),
+		])
+	
+	gs_clf = GridSearchCV(text_clf_nb, parameters, n_jobs=-1)
 
-	### Testing the Naive Bayes Classifier
+	gs_clf = gs_clf.fit(data[0:divider], target[0:divider])
 
-	testClassifier = {'data' : data[divider:], 'target': target[divider:]}
 
-	X_new_counts = count_vect.transform(testClassifier['data'])
-	X_new_tfidf = tfidf_transformer.transform(X_new_counts)
+	predicted = gs_clf.predict(data[divider:])
 
-	predicted = clf.predict(X_new_tfidf)
+	test_target = target[divider:]
 
-	for doc, category in zip(testClassifier['data'], predicted):
-		if category == testClassifier['target'][count]:
+	for doc, category in zip(data[divider:], predicted):
+		if category == test_target[count]:
 			matched += 1
 		count += 1	
 
 	print(str("naiveBayes:  {0} are matched".format(matched)))
-	accuracy = np.mean(predicted == testClassifier['target'])
+	accuracy = np.mean(predicted == test_target)
 	print "naiveBayes: Accuracy={0}".format(accuracy)
+
+	# find the best parameters
+	best_parameters, score, _ = max(gs_clf.grid_scores_, key=lambda x: x[1])
+	for param_name in sorted(parameters.keys()):
+		print("%s: %r" % (param_name, best_parameters[param_name]))
+	
+	print(metrics.classification_report(test_target,
+		predicted, labels=[0,1],
+		target_names=['non news', 'news']))
 
 	return [count_vect, tfidf_transformer, clf]
 
 def saveModel():
+	
+	text_clf_nb_file = 'text_clf_nb|{0}_{1}|{2}.plk'.format(int(split*100), int(100-split*100), accuracy)
 
-	if count_vect == None or tfidf_transformer == None or clf == None:
-		print "naiveBayes: Error! Please generate model first"
-	else:
-		count_vect_file = 'count_vect.{0}_{1}.{2}.plk'.format(int(split*100), int(100-split*100), accuracy)
-		tfidf_transformer_file = 'tfidf_transformer.{0}_{1}.{2}.plk'.format(int(split*100), int(100-split*100), accuracy)
-		clf_file = 'clf.{0}_{1}.{2}.plk'.format(int(split*100), int(100-split*100), accuracy)
+	with open(os.path.join(model_dump_path, text_clf_nb_file), "wb") as fid:
+		cPickle.dump(text_clf_nb, fid)
 
-		with open(os.path.join(model_dump_path, count_vect_file), "wb") as fid:
-			cPickle.dump(count_vect, fid)
-		
-		with open(os.path.join(model_dump_path, tfidf_transformer_file), "wb") as fid:
-			cPickle.dump(tfidf_transformer, fid)
-		
-		with open(os.path.join(model_dump_path, clf_file), "wb") as fid:
-			cPickle.dump(clf, fid)
-		print "naiveBayes: Models saved!"
+	gs_clf_file = 'gs_clf|{0}_{1}|{2}.plk'.format(int(split*100), int(100-split*100), accuracy)
+	
+	with open(os.path.join(model_dump_path, gs_clf_file), "wb") as fid:
+		cPickle.dump(gs_clf_file, fid)
+	
+	print "naiveBayes: Models saved!"
 
 
 def getModel():

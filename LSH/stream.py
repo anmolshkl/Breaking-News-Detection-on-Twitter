@@ -41,7 +41,7 @@ class listener(StreamListener):
             user["followers"] = decode["user"]["followers_count"]
             user["id"] = decode["user"]["id"]
             user["statusCount"] = decode["user"]["statuses_count"]
-
+            
             stripped["user"] = user
             stripped["tweet"] = decode["text"]
             stripped["id"] = decode["id"]

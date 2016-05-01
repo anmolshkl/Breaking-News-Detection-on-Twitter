@@ -40,11 +40,19 @@ channel.queue_bind(exchange='tweets', queue="FYP.Q.Generic.NonNewsTweetMessage",
 print('[*] Waiting for messages. To exit press CTRL+C')
 
 # initialize models here(saved to disk already)
-models = [['count_vect.60_40.0.886620715777.plk', 'tfidf_transformer.60_40.0.886620715777.plk', 'clf.60_40.0.886620715777.plk'],
-['count_vect.80_20.0.908758689176.plk', 'tfidf_transformer.80_20.0.908758689176.plk', 'clf.80_20.0.908758689176.plk']]
+models = [['count_vect.60_40.0.886620715777.plk',
+'tfidf_transformer.60_40.0.886620715777.plk',
+'clf.60_40.0.886620715777.plk'],
+['count_vect.80_20.0.908758689176.plk',
+'tfidf_transformer.80_20.0.908758689176.plk',
+'clf.80_20.0.908758689176.plk'],
+['count_vect.80_20.0.922510427011.plk',
+'tfidf_transformer.80_20.0.922510427011.plk',
+'clf.80_20.0.922510427011.plk']
+]
 
 # Change the model index to use a different model
-model_index = 1
+model_index = 2
 
 def loadModels():
     
